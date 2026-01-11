@@ -16,7 +16,7 @@ type Config struct {
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		ServerPort:      getEnv("SERVER_PORT", "8081"),
+		ServerPort:      getEnv("SERVER_PORT", "9011"),
 		VictoriaLogsURL: getEnv("VICTORIA_LOGS_URL", "http://localhost:9428"),
 		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379"),
 		BatchSize:       getEnvAsInt("BATCH_SIZE", 100),

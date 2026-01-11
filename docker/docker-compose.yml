@@ -1,0 +1,119 @@
+services:
+  # SQLite Database (file-based, no separate service needed)
+  # Database file will be created in the control-plane container
+
+  # Redis Cache
+  redis:
+    image: redis:8.4.0-alpine3.22
+    container_name: lograil_redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - lograil
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # VictoriaLogs
+  victorialogs:
+    image: victoriametrics/victoria-logs:latest
+    container_name: lograil_victorialogs
+    ports:
+      - '9428:9428'
+    volumes:
+      - victorialogs_data:/victoria-logs-data
+    networks:
+      - lograil
+    command:
+      - '--storageDataPath=/victoria-logs-data'
+      - '--httpListenAddr=:9428'
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:9428/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Control Plane Backend
+  control-plane:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_PATH: control-plane
+    container_name: lograil_control_plane
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=file:/app/lograil.db?cache=shared&_fk=1
+      - REDIS_URL=redis://redis:6379
+      - SERVER_PORT=8080
+      - ENVIRONMENT=development
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - lograil
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Ingestion Backend
+  ingestion:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_PATH: ingestion
+    container_name: lograil_ingestion
+    ports:
+      - '8081:8081'
+    environment:
+      - VICTORIA_LOGS_URL=http://victorialogs:9428
+      - REDIS_URL=redis://redis:6379
+      - SERVER_PORT=8081
+      - BATCH_SIZE=100
+      - BUFFER_SIZE=1000
+      - ENVIRONMENT=development
+    depends_on:
+      victorialogs:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lograil
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8081/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web UI
+  web-ui:
+    build:
+      context: ../web-ui
+      dockerfile: docker/Dockerfile
+    container_name: lograil_web_ui
+    ports:
+      - '3000:80'
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8080/api/v1
+      - VITE_INGESTION_URL=http://localhost:8081
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    networks:
+      - lograil
+
+volumes:
+  redis_data:
+  victorialogs_data:
+
+networks:
+  lograil:
+    driver: bridge

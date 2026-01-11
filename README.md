@@ -19,9 +19,10 @@ For detailed architecture information, see:
 ### Prerequisites
 
 - Go 1.21+
-- Node.js 18+
+- Node.js 24+
 - pnpm
 - Docker and Docker Compose
+- SQLite3 (automatically handled in containers)
 
 ### Development Setup
 
@@ -43,8 +44,8 @@ For detailed architecture information, see:
 
 4. **Access the services**
    - Web UI: http://localhost:3000
-   - Control Plane API: http://localhost:8080
-   - Ingestion API: http://localhost:8081
+   - Control Plane API: http://localhost:9012
+   - Ingestion API: http://localhost:9011
    - VictoriaLogs: http://localhost:9428
 
 ### Manual Development
@@ -52,10 +53,10 @@ For detailed architecture information, see:
 If you prefer to run services individually:
 
 ```bash
-# Terminal 1: Start databases
-cd docker && docker-compose up postgres redis victorialogs -d
+# Terminal 1: Start databases (Redis and VictoriaLogs)
+cd docker && docker-compose up redis victorialogs -d
 
-# Terminal 2: Start Control Plane
+# Terminal 2: Start Control Plane (SQLite database will be created automatically)
 cd control-plane && go run cmd/server/main.go
 
 # Terminal 3: Start Ingestion Backend
@@ -71,7 +72,7 @@ cd web-ui && pnpm dev
 
 ```bash
 # Single log entry
-curl -X POST http://localhost:8081/ingest/logs \
+curl -X POST http://localhost:9011/ingest/logs \
   -H "Content-Type: application/json" \
   -d '{
     "level": "info",
@@ -81,7 +82,7 @@ curl -X POST http://localhost:8081/ingest/logs \
   }'
 
 # Batch log entries
-curl -X POST http://localhost:8081/ingest/batch \
+curl -X POST http://localhost:9011/ingest/batch \
   -H "Content-Type: application/json" \
   -d '{
     "logs": [
@@ -103,7 +104,7 @@ curl -X POST http://localhost:8081/ingest/batch \
 
 ```bash
 # Get project logs
-curl "http://localhost:8080/api/v1/projects/1/logs?query=error&start=2024-01-01T00:00:00Z"
+curl "http://localhost:9012/api/v1/projects/1/logs?query=error&start=2024-01-01T00:00:00Z"
 ```
 
 ## Development
