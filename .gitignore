@@ -1,3 +1,4 @@
 bin/
 server
 dist/
+node_modules/
