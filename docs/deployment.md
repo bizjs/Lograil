@@ -27,9 +27,9 @@ Lograil can be deployed using Docker Compose for both development and production
    ```
 
 3. **Access the services**
-   - Web UI: http://localhost:3000
-   - Control Plane API: http://localhost:8080
-   - Ingestion API: http://localhost:8081
+   - Web UI: http://localhost:9013
+   - Control Plane API: http://localhost:9012
+   - Ingestion API: http://localhost:9011
    - VictoriaLogs: http://localhost:9428
 
 ### Production Environment
@@ -58,24 +58,24 @@ Lograil can be deployed using Docker Compose for both development and production
 ## Service Configuration
 
 ### Control Plane Backend
-- **Port**: 8080
+- **Port**: 9012
 - **Environment Variables**:
   - `DATABASE_URL`: PostgreSQL connection string
   - `REDIS_URL`: Redis connection string
   - `JWT_SECRET`: Secret key for JWT tokens
-  - `SERVER_PORT`: Port to listen on (default: 8080)
+  - `SERVER_PORT`: Port to listen on (default: 9012)
 
 ### Ingestion Backend
-- **Port**: 8081
+- **Port**: 9011
 - **Environment Variables**:
   - `VICTORIA_LOGS_URL`: VictoriaLogs endpoint
   - `REDIS_URL`: Redis connection for buffering
-  - `SERVER_PORT`: Port to listen on (default: 8081)
+  - `SERVER_PORT`: Port to listen on (default: 9011)
   - `BATCH_SIZE`: Batch size for log writes (default: 100)
   - `BUFFER_SIZE`: In-memory buffer size (default: 1000)
 
 ### Web UI
-- **Port**: 3000
+- **Port**: 9013
 - **Environment Variables**:
   - `VITE_API_BASE_URL`: Control Plane API base URL
   - `VITE_INGESTION_URL`: Ingestion API base URL
@@ -84,12 +84,6 @@ Lograil can be deployed using Docker Compose for both development and production
 - **Port**: 9428
 - **Data Path**: `/data/victoria-logs`
 - **Configuration**: Custom VictoriaLogs configuration for log storage
-
-### PostgreSQL
-- **Port**: 5432
-- **Database**: lograil
-- **User**: lograil
-- **Data Path**: `/data/postgres`
 
 ### Redis
 - **Port**: 6379
@@ -187,7 +181,7 @@ services:
 ### Common Issues
 
 1. **Port conflicts**:
-   - Check if ports 3000, 8080, 8081, 9428, 5432, 6379 are available
+   - Check if ports 9013, 9011, 9012, 9428 are available
    - Use `docker-compose ps` to see port mappings
 
 2. **Database connection issues**:

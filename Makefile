@@ -49,12 +49,17 @@ logs:
 # Development setup
 dev-setup: docker-up
 	@echo "Development environment is ready!"
-	@echo "Control Plane: http://localhost:8080"
-	@echo "Ingestion: http://localhost:8081"
-	@echo "Web UI: http://localhost:3000"
+	@echo "Control Plane: http://localhost:9012"
+	@echo "Ingestion: http://localhost:9011"
+	@echo "Web UI: http://localhost:9013"
 	@echo "VictoriaLogs: http://localhost:9428"
 
 # Quick start for development
 dev: build docker-up
 	@echo "Lograil development environment started!"
 	@echo "Run 'make logs' to view service logs"
+
+build2: 
+	@cd docker && docker-compose build
+
+start: docker-up
