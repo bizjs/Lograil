@@ -1,14 +1,38 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
-	_ "github.com/lib/pq"
+	"entgo.io/ent/dialect"
+	entsql "entgo.io/ent/dialect/sql"
+	"github.com/bizjs/Lograil/pkg/data"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func NewConnection(databaseURL string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", databaseURL)
+	var driverName string
+
+	// Determine driver based on URL
+	if strings.HasPrefix(databaseURL, "sqlite://") {
+		driverName = "sqlite3"
+		databaseURL = strings.TrimPrefix(databaseURL, "sqlite://")
+	} else if strings.HasPrefix(databaseURL, "postgres://") || strings.HasPrefix(databaseURL, "postgresql://") {
+		driverName = "postgres"
+		// Keep PostgreSQL import for backward compatibility
+		_ = "github.com/lib/pq"
+	} else {
+		// Default to SQLite for development
+		driverName = "sqlite3"
+		if databaseURL == "" {
+			databaseURL = "file:lograil.db?cache=shared&_fk=1"
+		}
+	}
+
+	db, err := sql.Open(driverName, databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
@@ -18,64 +42,40 @@ func NewConnection(databaseURL string) (*sql.DB, error) {
 	}
 
 	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
+	if driverName == "sqlite3" {
+		// SQLite specific settings
+		db.SetMaxOpenConns(1) // SQLite only supports one writer
+	} else {
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(25)
+	}
 
 	return db, nil
 }
 
+func NewEntClient(db *sql.DB) (*data.Client, error) {
+	drv := entsql.OpenDB(dialect.SQLite, db)
+	return data.NewClient(data.Driver(drv)), nil
+}
+
 func RunMigrations(db *sql.DB) error {
-	// Create users table
-	usersTable := `
-	CREATE TABLE IF NOT EXISTS users (
-		id SERIAL PRIMARY KEY,
-		username VARCHAR(255) UNIQUE NOT NULL,
-		email VARCHAR(255) UNIQUE NOT NULL,
-		password_hash VARCHAR(255) NOT NULL,
-		role VARCHAR(50) NOT NULL DEFAULT 'user',
-		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	// Create projects table
-	projectsTable := `
-	CREATE TABLE IF NOT EXISTS projects (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(255) UNIQUE NOT NULL,
-		description TEXT,
-		owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	// Create api_keys table
-	apiKeysTable := `
-	CREATE TABLE IF NOT EXISTS api_keys (
-		id SERIAL PRIMARY KEY,
-		project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-		name VARCHAR(255) NOT NULL,
-		key_hash VARCHAR(255) UNIQUE NOT NULL,
-		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		expires_at TIMESTAMP WITH TIME ZONE
-	);`
-
-	// Create retention_policies table
-	retentionTable := `
-	CREATE TABLE IF NOT EXISTS retention_policies (
-		id SERIAL PRIMARY KEY,
-		project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-		duration_days INTEGER NOT NULL,
-		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-	);`
-
-	tables := []string{usersTable, projectsTable, apiKeysTable, retentionTable}
-
-	for _, table := range tables {
-		if _, err := db.Exec(table); err != nil {
-			return fmt.Errorf("failed to create table: %w", err)
-		}
+	// Create Ent client
+	client, err := NewEntClient(db)
+	if err != nil {
+		return fmt.Errorf("failed to create ent client: %w", err)
 	}
+	defer client.Close()
+
+	// Run auto-migration
+	ctx := context.Background()
+	if err := client.Schema.Create(ctx); err != nil {
+		return fmt.Errorf("failed to create schema: %w", err)
+	}
+
+	// Alternative: Use migration tables for version control
+	// if err := migrate.NamedDiff(ctx, client.Schema, "initial"); err != nil {
+	//     return fmt.Errorf("failed to run migration: %w", err)
+	// }
 
 	return nil
 }

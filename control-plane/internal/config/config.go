@@ -16,7 +16,7 @@ type Config struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		ServerPort:  getEnv("SERVER_PORT", "8080"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://lograil:password@localhost:5432/lograil?sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "file:lograil.db?cache=shared&_fk=1"),
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379"),
 		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 		Environment: getEnv("ENVIRONMENT", "development"),
